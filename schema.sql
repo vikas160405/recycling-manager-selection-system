@@ -10,7 +10,7 @@ CREATE TABLE candidates (
 
 CREATE TABLE evaluations (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    candidate_id INT UNIQUE,  -- 🔥 prevents duplicates
+    candidate_id INT UNIQUE,
     crisis_management_score FLOAT,
     sustainability_score FLOAT,
     team_motivation_score FLOAT,
@@ -52,4 +52,3 @@ DELIMITER ;
 CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'app123';
 GRANT ALL PRIVILEGES ON recycling_system.* TO 'appuser'@'localhost';
 FLUSH PRIVILEGES;
-
