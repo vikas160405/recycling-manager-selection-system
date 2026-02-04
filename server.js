@@ -12,7 +12,7 @@ const DB_PASSWORD = process.env.DB_PASSWORD || 'app123';
 const DB_NAME = process.env.DB_NAME || 'recycling_system';
 const PORT = process.env.PORT || 5000;
 
-// ✅ Pool (fixes crash & scalability)
+// ✅ Connection Pool (stable)
 const pool = mysql.createPool({
   host: DB_HOST,
   user: DB_USER,
@@ -26,7 +26,7 @@ function randomScore() {
   return parseFloat((Math.random() * 5 + 5).toFixed(2));
 }
 
-// ✅ Evaluate safely (no duplicates)
+// Evaluate candidates safely
 app.get('/evaluate', async (req, res) => {
   let conn;
   try {
