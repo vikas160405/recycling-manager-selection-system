@@ -1,54 +1,90 @@
-CREATE DATABASE IF NOT EXISTS recycling_system;
-USE recycling_system;
+const express = require('express');
+const cors = require('cors');
+const mysql = require('mysql2');
 
-CREATE TABLE candidates (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100),
-    experience_years INT,
-    skills TEXT
-);
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-CREATE TABLE evaluations (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    candidate_id INT UNIQUE,
-    crisis_management_score FLOAT,
-    sustainability_score FLOAT,
-    team_motivation_score FLOAT,
-    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
-);
+// Database connection
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'appuser',
+  password: 'app123',
+  database: 'recycling_system'
+});
 
-CREATE TABLE rankings (
-    candidate_id INT PRIMARY KEY,
-    total_score FLOAT,
-    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
-);
+db.connect(err => {
+  if (err) {
+    console.error("Database connection failed:", err);
+    return;
+  }
+  console.log("Connected to MySQL");
+});
 
-DELIMITER $$
+// Function to generate random AI scores
+function randomScore() {
+  return (Math.random() * 5 + 5).toFixed(2); // Range 5–10
+}
 
-CREATE TRIGGER update_ranking
-AFTER INSERT ON evaluations
-FOR EACH ROW
-BEGIN
-  REPLACE INTO rankings (candidate_id, total_score)
-  VALUES (NEW.candidate_id,
-          NEW.crisis_management_score +
-          NEW.sustainability_score +
-          NEW.team_motivation_score);
-END$$
+//////////////////////////////////////////////////////////
+// 🧠 AI EVALUATION ROUTE
+//////////////////////////////////////////////////////////
+app.get('/evaluate', (req, res) => {
 
-CREATE TRIGGER update_ranking_update
-AFTER UPDATE ON evaluations
-FOR EACH ROW
-BEGIN
-  REPLACE INTO rankings (candidate_id, total_score)
-  VALUES (NEW.candidate_id,
-          NEW.crisis_management_score +
-          NEW.sustainability_score +
-          NEW.team_motivation_score);
-END$$
+  db.query("DELETE FROM evaluations", (err) => {
+    if (err) return res.status(500).send("Error clearing evaluations");
 
-DELIMITER ;
+    db.query("DELETE FROM rankings", (err) => {
+      if (err) return res.status(500).send("Error clearing rankings");
 
-CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'app123';
-GRANT ALL PRIVILEGES ON recycling_system.* TO 'appuser'@'localhost';
-FLUSH PRIVILEGES;
+      db.query("SELECT id FROM candidates", (err, results) => {
+        if (err) return res.status(500).send("Error reading candidates");
+
+        if (results.length === 0) {
+          return res.send("No candidates found.");
+        }
+
+        let completed = 0;
+
+        results.forEach(c => {
+          db.query(
+            "INSERT INTO evaluations (candidate_id, crisis_management_score, sustainability_score, team_motivation_score) VALUES (?, ?, ?, ?)",
+            [c.id, randomScore(), randomScore(), randomScore()],
+            (err) => {
+              if (err) return res.status(500).send("Insert error");
+
+              completed++;
+
+              if (completed === results.length) {
+                res.send("Evaluation completed!");
+              }
+            }
+          );
+        });
+      });
+    });
+  });
+
+});
+
+//////////////////////////////////////////////////////////
+// 🏆 LEADERBOARD ROUTE
+//////////////////////////////////////////////////////////
+app.get('/leaderboard', (req, res) => {
+  db.query(`
+    SELECT c.name, r.total_score
+    FROM rankings r
+    JOIN candidates c ON c.id = r.candidate_id
+    ORDER BY r.total_score DESC
+    LIMIT 10
+  `, (err, results) => {
+    if (err) return res.status(500).send("Leaderboard error");
+    res.json(results);
+  });
+});
+
+//////////////////////////////////////////////////////////
+// 🚀 START SERVER
+//////////////////////////////////////////////////////////
+app.listen(5000, () => console.log("Server running on port 5000"));
