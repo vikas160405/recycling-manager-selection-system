@@ -1,15 +1,21 @@
 <!doctype html>
 <html>
   <head>
+    <meta charset="utf-8" />
     <title>Recycling Manager Leaderboard</title>
     <style>
       body {
-        font-family: Arial;
+        font-family: Arial, sans-serif;
         background: #000000;
+        color: #e0d1d1;
         padding: 20px;
       }
       h1 {
         text-align: center;
+      }
+      .controls {
+        text-align: center;
+        margin-bottom: 12px;
       }
       button {
         padding: 10px 15px;
@@ -18,57 +24,180 @@
         border: none;
         border-radius: 5px;
         cursor: pointer;
+        margin: 0 6px;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
       .card {
         background: rgb(219, 212, 212);
+        color: #000;
         padding: 15px;
         margin: 10px auto;
-        width: 300px;
+        width: 320px;
         border-radius: 8px;
         box-shadow: 0 2px 6px rgba(230, 235, 237, 0.2);
+      }
+      #list {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .status {
+        text-align: center;
+        margin: 10px;
+        color: #f0f0f0;
+      }
+      .spinner {
+        border: 3px solid rgba(255,255,255,0.15);
+        border-top: 3px solid #0d0249;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        animation: spin 0.9s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .note {
+        font-size: 0.9em;
+        color: #cfcfcf;
+        text-align: center;
+        margin-top: 6px;
       }
     </style>
   </head>
   <body>
     <h1>🏭 Top 10 Recycling Manager Candidates</h1>
-    <center>
-      <button onclick="runEvaluation()">Run AI Evaluation</button>
 
-      <button onclick="loadLeaderboard()">Show Leaderboard</button>
-    </center>
+    <div class="controls">
+      <button id="runBtn">Run AI Evaluation</button>
+      <button id="showBtn">Show Leaderboard</button>
+    </div>
+
+    <div class="status" id="status" aria-live="polite"></div>
 
     <div id="list"></div>
 
+    <div class="note">
+      Note: The page expects an API at <code>http://127.0.0.1:5000</code> with endpoints
+      <code>/evaluate</code> (GET -> text) and <code>/leaderboard</code> (GET -> JSON array).
+    </div>
+
     <script>
-      function runEvaluation() {
-        fetch("http://127.0.0.1:5000/evaluate")
-          .then((res) => {
-            if (!res.ok) throw new Error("Server error");
-            return res.text();
-          })
-          .then((msg) => {
-            alert("AI Evaluation Completed ✅");
-            loadLeaderboard();
-          })
-          .catch((err) => alert("Server not reachable"));
+      // Configure your API base URL here. Change for deployment.
+      const API_BASE = "http://127.0.0.1:5000";
+
+      const runBtn = document.getElementById("runBtn");
+      const showBtn = document.getElementById("showBtn");
+      const statusEl = document.getElementById("status");
+      const listEl = document.getElementById("list");
+
+      function setStatus(message, { loading = false } = {}) {
+        statusEl.textContent = message || "";
+        if (loading) {
+          const spinner = document.createElement("span");
+          spinner.className = "spinner";
+          spinner.setAttribute("aria-hidden", "true");
+          statusEl.appendChild(spinner);
+        }
       }
 
-      function loadLeaderboard() {
-        fetch("http://127.0.0.1:5000/leaderboard")
-          .then((res) => res.json())
-          .then((data) => {
-            const list = document.getElementById("list");
-            list.innerHTML = "";
-            data.forEach((c, index) => {
-              list.innerHTML += `
-          <div class="card">
-            <h3>#${index + 1} ${c.name}</h3>
-            <p><strong>Total Score:</strong> ${c.total_score}</p>
-          </div>
-        `;
-            });
-          });
+      function handleFetchError(err) {
+        console.error(err);
+        setStatus("Error: Server not reachable or returned an error.");
+        alert("Server not reachable or returned an error. See console for details.");
       }
+
+      async function runEvaluation() {
+        runBtn.disabled = true;
+        showBtn.disabled = true;
+        setStatus("Triggering AI evaluation...", { loading: true });
+
+        try {
+          const res = await fetch(`${API_BASE}/evaluate`, { method: "GET" });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`Server returned ${res.status} ${text}`);
+          }
+          // we expect text response
+          const text = await res.text();
+          setStatus("AI Evaluation completed ✅");
+          // Refresh leaderboard after evaluation completes
+          await loadLeaderboard();
+        } catch (err) {
+          handleFetchError(err);
+        } finally {
+          runBtn.disabled = false;
+          showBtn.disabled = false;
+        }
+      }
+
+      async function loadLeaderboard() {
+        showBtn.disabled = true;
+        runBtn.disabled = true;
+        setStatus("Loading leaderboard...", { loading: true });
+
+        try {
+          const res = await fetch(`${API_BASE}/leaderboard`, { method: "GET" });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`Server returned ${res.status} ${text}`);
+          }
+          const data = await res.json();
+
+          if (!Array.isArray(data)) {
+            throw new Error("Unexpected server response format: expected JSON array.");
+          }
+
+          // Clear existing list
+          listEl.innerHTML = "";
+
+          if (data.length === 0) {
+            setStatus("Leaderboard is empty.");
+          } else {
+            setStatus(""); // clear status
+          }
+
+          data.forEach((c, index) => {
+            const card = document.createElement("div");
+            card.className = "card";
+
+            const title = document.createElement("h3");
+            // Use textContent to avoid injecting untrusted HTML
+            title.textContent = `#${index + 1} ${c.name ?? "Unknown"}`;
+
+            const scoreP = document.createElement("p");
+            const strong = document.createElement("strong");
+            strong.textContent = "Total Score: ";
+            scoreP.appendChild(strong);
+            // append numeric or text score safely
+            const scoreText = document.createTextNode(String(c.total_score ?? "N/A"));
+            scoreP.appendChild(scoreText);
+
+            card.appendChild(title);
+            card.appendChild(scoreP);
+            listEl.appendChild(card);
+          });
+        } catch (err) {
+          handleFetchError(err);
+        } finally {
+          showBtn.disabled = false;
+          runBtn.disabled = false;
+        }
+      }
+
+      // Attach handlers
+      runBtn.addEventListener("click", runEvaluation);
+      showBtn.addEventListener("click", loadLeaderboard);
+
+      // Optionally load leaderboard on page load
+      // window.addEventListener("load", loadLeaderboard);
     </script>
   </body>
 </html>
