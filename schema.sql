@@ -22,3 +22,34 @@ CREATE TABLE rankings (
     total_score FLOAT,
     FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
 );
+
+DELIMITER $$
+
+CREATE TRIGGER update_ranking
+AFTER INSERT ON evaluations
+FOR EACH ROW
+BEGIN
+  REPLACE INTO rankings (candidate_id, total_score)
+  VALUES (NEW.candidate_id,
+          NEW.crisis_management_score +
+          NEW.sustainability_score +
+          NEW.team_motivation_score);
+END$$
+
+CREATE TRIGGER update_ranking_update
+AFTER UPDATE ON evaluations
+FOR EACH ROW
+BEGIN
+  REPLACE INTO rankings (candidate_id, total_score)
+  VALUES (NEW.candidate_id,
+          NEW.crisis_management_score +
+          NEW.sustainability_score +
+          NEW.team_motivation_score);
+END$$
+
+DELIMITER ;
+
+CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'app123';
+GRANT ALL PRIVILEGES ON recycling_system.* TO 'appuser'@'localhost';
+FLUSH PRIVILEGES;
+
