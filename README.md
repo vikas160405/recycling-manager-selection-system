@@ -79,18 +79,3 @@ Click Run AI Evaluation → then Show Leaderboard
 
 The system displays Top 10 ranked candidates based on AI scoring.
 
-🎯 Project Goal
-
-To demonstrate:
-
-Database design
-
-Backend development
-
-AI prompt engineering
-
-Dashboard creation
-
-👨‍💻 Author
-
-Vikas Relangi
