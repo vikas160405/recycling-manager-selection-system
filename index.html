@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Recycling Manager Leaderboard</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #000000;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+      }
+      button {
+        padding: 10px 15px;
+        background: #0d0249;
+        color: rgb(224, 209, 209);
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .card {
+        background: rgb(219, 212, 212);
+        padding: 15px;
+        margin: 10px auto;
+        width: 300px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(230, 235, 237, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🏭 Top 10 Recycling Manager Candidates</h1>
+    <center>
+      <button onclick="runEvaluation()">Run AI Evaluation</button>
+
+      <button onclick="loadLeaderboard()">Show Leaderboard</button>
+    </center>
+
+    <div id="list"></div>
+
+    <script>
+      function runEvaluation() {
+        fetch("http://127.0.0.1:5000/evaluate")
+          .then((res) => {
+            if (!res.ok) throw new Error("Server error");
+            return res.text();
+          })
+          .then((msg) => {
+            alert("AI Evaluation Completed ✅");
+            loadLeaderboard();
+          })
+          .catch((err) => alert("Server not reachable"));
+      }
+
+      function loadLeaderboard() {
+        fetch("http://127.0.0.1:5000/leaderboard")
+          .then((res) => res.json())
+          .then((data) => {
+            const list = document.getElementById("list");
+            list.innerHTML = "";
+            data.forEach((c, index) => {
+              list.innerHTML += `
+          <div class="card">
+            <h3>#${index + 1} ${c.name}</h3>
+            <p><strong>Total Score:</strong> ${c.total_score}</p>
+          </div>
+        `;
+            });
+          });
+      }
+    </script>
+  </body>
+</html>
